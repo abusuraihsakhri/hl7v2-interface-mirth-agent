@@ -1,16 +1,28 @@
 """
 FastAPI REST API Server for Hl7V2 Interface Mirth Agent.
 """
+import os
+from contextlib import asynccontextmanager
 from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from .base import AuditLogger, PHIGuard
+from .base import AuditLogger, PHIGuard, SecurityException
 from .models import SystemTaskPayload, ConsensusDossier
 from .supervisor import SystemSupervisor
 
 supervisor = SystemSupervisor(model_provider="mock")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """A publicly reachable service must never sign records using the development fallback key."""
+    secret = os.environ.get("AUDIT_SECRET_KEY", "")
+    if len(secret) < 32 or secret == "your-secure-audit-key-here":
+        raise RuntimeError("Set AUDIT_SECRET_KEY to a strong, unique secret (at least 32 characters) before serving.")
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Hl7V2 Interface Mirth Agent API",
     description="Enterprise Distributed Component Platform (Clinical & Biomedical AI)",
     version="3.0.0-ENTERPRISE",
@@ -37,7 +49,10 @@ def metrics():
 
 @app.post("/api/audit")
 def api_audit(payload: SystemTaskPayload):
-    dossier = supervisor.process_task(payload)
+    try:
+        dossier = supervisor.process_task(payload)
+    except SecurityException:
+        raise HTTPException(status_code=422, detail="Potential personal identifier detected. Use synthetic identifiers.")
     return dossier.to_dict()
 
 
