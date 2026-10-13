@@ -1,27 +1,36 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "hl7v2-interface-mirth-engine"
 version = "2.0.0"
-description = "HL7-Mirth Inspector: LIS/HIS Message Stream Quality, Segment Triage & PHI Sanitizer"
+description = "HL7 interface inspection demonstration and synthetic-metric audit tools"
 readme = "README.md"
-authors = [{ name = "Dr. Abu Suraih Sakhri", email = "abusuraih@example.com" }]
+authors = [{ name = "Dr. Abu Suraih Sakhri" }]
 license = { text = "MIT" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering :: Medical Science Apps.",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps",
 ]
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "fastapi>=0.110,<1",
+    "uvicorn>=0.27,<1",
+    "pydantic>=2,<3",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
 
 [project.scripts]
 hl7v2-interface-mirth-engine = "hl7v2_interface_mirth_agent.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/abusuraihsakhri/hl7v2-interface-mirth-engine"
-Repository = "https://github.com/abusuraihsakhri/hl7v2-interface-mirth-engine.git"
+Homepage = "https://github.com/abusuraihsakhri/hl7v2-interface-mirth-agent"
+Repository = "https://github.com/abusuraihsakhri/hl7v2-interface-mirth-agent.git"
+
+[tool.setuptools.packages.find]
+include = ["agents*", "hl7v2_interface_mirth_agent*"]
