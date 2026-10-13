@@ -1,40 +1,55 @@
-name: Hl7V2 Interface Mirth Engine CI/CD & Security Verification
+name: CI - Python and Browser
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master]
   pull_request:
-    branches: [ master, main ]
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  test-and-audit:
+  python:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-
+    env:
+      AUDIT_SECRET_KEY: "ci-test-only-signing-key-never-use-in-production-2026"
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install package and test dependencies
+        run: python -m pip install -e ".[test]"
+      - name: Validate dependency consistency
+        run: python -m pip check
+      - name: Compile Python entry points
+        run: python -m compileall -q agents hl7v2_interface_mirth_agent cli.py hl7_mirth_inspector.py
+      - name: Run Python regression tests
+        run: python -m pytest -q
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install fastapi uvicorn pydantic pytest
-
-    - name: Run Pytest Suite
-      run: |
-        pytest -v
-
-    - name: Security SAST & Zero-PHI Audit
-      run: |
-        python -c "
-        from agents.base import PHIGuard, AuditLogger
-        import pytest
-        assert AuditLogger.verify_integrity() is True
-        print('Security & Zero-PHI Audit Passed!')
-        "
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check browser module syntax
+        run: node --check web/hl7.mjs
+      - name: Run HL7 structural-inspector tests
+        run: node --test web/hl7.test.mjs
+      - name: Check inline browser application syntax
+        run: |
+          python -c 'from pathlib import Path; p=Path("web/index.html").read_text(); s=p.split("<script type=\"module\">", 1)[1].split("</script>", 1)[0]; Path("/tmp/hl7-browser-inline.mjs").write_text(s)'
+          node --check /tmp/hl7-browser-inline.mjs

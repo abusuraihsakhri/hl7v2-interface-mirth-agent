@@ -10,6 +10,18 @@ from .agents import HL7InterfaceCoordinator
 
 coordinator = HL7InterfaceCoordinator()
 
+def parse_csv_bool(value):
+    """Interpret CSV booleans explicitly; bool("False") would incorrectly be True."""
+    if isinstance(value, bool):
+        return value
+    normalized = str(value if value is not None else "").strip().lower()
+    if normalized in ("", "false", "0", "no", "n", "off"):
+        return False
+    if normalized in ("true", "1", "yes", "y", "on"):
+        return True
+    raise ValueError(f"Invalid boolean value in CSV: {value!r}")
+
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="hl7v2-interface-mirth-agent", description="HL7-Mirth Inspector: LIS/HIS Message Stream Quality, Segment Triage & PHI Sanitizer")
@@ -82,7 +94,7 @@ def main(argv=None):
                 primary_metric=float(r.get("metric_primary", r.get("primary_metric", 15.0))),
                 secondary_metric=float(r.get("metric_secondary", r.get("secondary_metric", 5.0))),
                 status_flag=r.get("status_flag", r.get("status_text", "NORMAL")),
-                is_stat=bool(r.get("is_stat", r.get("critical_flag", False))),
+                is_stat=parse_csv_bool(r.get("is_stat", r.get("critical_flag", False))),
             )
             dossier = coordinator.process_case(case)
             row_dict = dict(r)

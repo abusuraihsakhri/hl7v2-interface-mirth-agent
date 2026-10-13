@@ -1,174 +1,72 @@
-# Hl7v2 Interface Mirth Agent
+# HL7 v2 Interface Mirth Agent
 
-> **Domain:** Clinical Decision Support & Biomedical Computing  
-> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
+A browser-based HL7 v2 structural preflight inspector, alongside Python demonstration tools for synthetic metric auditing. The browser tool does **not** connect to Mirth Connect and does not require a Python server.
 
-<div align="center">
+## Browser inspector
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+Open `web/index.html` through a static HTTP server, or use GitHub Pages when the Pages deployment is enabled.
 
-</div>
+- Paste one HL7 v2 ER7 message, or import a `.hl7` / `.txt` file of up to 1 MiB.
+- Inspect MSH fields, segment formatting, and selected PID, OBR, and OBX fields.
+- Accept conventional CR or LF line endings and optional outer MLLP framing.
+- Report structural errors and warnings; download a JSON findings summary without the raw message.
+- Run entirely in the browser without sending input to an external service.
 
----
+The checker is **not** a full version-specific HL7 conformance validator, an HL7 interface engine, a Mirth channel auditor, or a HIPAA Safe Harbor de-identification tool. It does not deliver or acknowledge HL7 messages. Do not use its results for clinical decisions or production message acceptance without independent validation.
 
-## 📖 What It Does
-
-**Hl7v2 Interface Mirth Agent** is an analytical platform implementing LIS/HIS MSH/PID/OBR/OBX Stream Inspector & Safe Harbor Sanitizer. It provides:
-
-- **Multi-worker evaluation pipeline** with specialized agents for QC, safety, and protocol conformance
-- **Zero-PHI outbound interceptor** blocking SSNs, MRNs, phone numbers, and patient identifiers
-- **Tamper-evident HMAC-SHA256 audit trail** with chained cryptographic signatures
-- **FastAPI REST API** with OpenAPI 3.1 spec and Prometheus metrics
-- **CLI** for single evaluations, batch CSV processing, and interactive chat
-
----
-
-## 🚀 Installation
+For local development:
 
 ```bash
-# Clone the repository
-git clone https://github.com/abusuraihsakhri/hl7v2-interface-mirth-agent.git
-cd hl7v2-interface-mirth-agent
-
-# Install dependencies
-pip install fastapi uvicorn pydantic pytest
+python -m http.server 8080
+# Open http://localhost:8080/web/
 ```
 
----
+The site requires modern browser support for JavaScript modules, Blob downloads, and the File API. No Pyodide or browser Python runtime is needed because the checks run in JavaScript.
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+## Python CLI and API
 
-### 🔬 Core Algorithmic & Evaluation Engines
+The Python code provides **separate synthetic-metric demonstrations** (not HL7 segment parsing). Both the root `cli.py` / `agents/` stack and the `hl7v2_interface_mirth_agent/` package remain available.
 
-- **`Severity`** — dedicated module for severity evaluation and state verification.
-- **`DomainKnowledgeRegistry`**: Enterprise domain rules, guideline matrices, and evidence benchmarks.
-- **`AgentAlert`** — dedicated module for agent alert evaluation and state verification.
-- **`MessageHierarchyValidatorAgent`**: Primary metric & baseline quality auditor.
-- **`OBXResultAuditorAgent`**: STAT kinetics & closed-loop escalation auditor.
-- **`HIPAASafeHarborSanitizerAgent`**: Biomarker & concordance triager.
-
----
-
-## 💻 CLI Quickstart & Usage
-
-### 1. Single Task Evaluation
 ```bash
-python cli.py audit --task-id TASK-001 --target KEY-01 --primary 28.5 --secondary 14.2 --critical --status DISCORDANT
-```
+python -m pip install -e ".[test]"
+python -m pytest -q
 
-### 2. Interactive Chat
-```bash
-python cli.py chat "What is the system status?"
-```
-
-### 3. Batch CSV Processing
-```bash
+# Root CLI: synthetic-metric audit, CSV batch, chat, audit verification
+python cli.py audit --task-id DEMO-001 --target SYNTHETIC-01 --primary 28.5 --secondary 14.2 --critical
 python cli.py batch -i sample.csv -o results.csv
-```
-
-### 4. Verify Audit Trail Integrity
-```bash
 python cli.py verify-audit
+
+# Installed package CLI (different input schema)
+hl7v2-interface-mirth-engine audit --case-id DEMO-001 --primary 15 --secondary 5
 ```
 
-### 5. Launch REST API Server
+For the local FastAPI service, supply a **unique, random** signing key of at least 32 characters. The service refuses to start with a missing or example key:
+
 ```bash
+export AUDIT_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 python cli.py serve --host 127.0.0.1 --port 8000
+# GET /health, GET /metrics, POST /api/audit, POST /api/chat, GET /api/audit/logs
 ```
 
-### Parameter Reference
-- `--task-id`: Unique task/case identifier (required)
-- `--target`: Target identifier (required)
-- `--primary`: Primary metric value (float)
-- `--secondary`: Secondary metric value (float)
-- `--critical`: Trigger emergency/critical flag
-- `--status`: Status descriptor (e.g., NOMINAL, DISCORDANT)
+Or copy `.env.example`, replace the placeholder `AUDIT_SECRET_KEY`, and run `docker compose up --build`. Compose binds port 8000 to localhost by default. The Docker container serves the Python API, **not** the static browser application.
 
----
+## Security and privacy
 
-## 🛡️ Security & Enterprise Architecture
+- **Browser:** message content is processed in memory in the active tab. The site has no analytics, third-party scripts, remote calls, or application-managed persistence. Exported JSON reports contain only aggregated segment counts and diagnostic findings.
+- **Python:** synthetic audit data and HMAC-chained log entries are held in process memory. The audit-chain verifier checks signatures and links. Development-only CLI use without `AUDIT_SECRET_KEY` falls back to an insecure test key; never rely on that key for audit authenticity.
+- **Limitations:** the Python API has no user authentication and the regex-based PHI checks are incomplete. Do not expose it to the public internet, submit real patient data, or claim regulatory compliance without additional controls and independent security review. Demo thresholds are not medically validated clinical cutoffs.
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
-
-### Environment Configuration
-
-Copy `.env.example` to `.env` and configure:
+## Testing
 
 ```bash
-cp .env.example .env
+python -m pip install -e ".[test]"
+python -m pytest -q
+python -m pip check
+node --test web/hl7.test.mjs
 ```
 
-Required variables:
-- `AUDIT_SECRET_KEY` — HMAC-SHA256 signing key (generate a strong random key)
-- `MODEL_PROVIDER` — LLM provider: `mock`, `ollama`, `claude`, `openai`
+GitHub Actions checks Python 3.10–3.12 and the browser inspection module. GitHub Pages deploys the static files only.
 
----
+## Technology and license
 
-## 🧪 Testing & Verification
-
-Run the automated test suite:
-
-```bash
-pytest -v
-```
-
-Execute high-throughput batch simulation benchmarks:
-
-```bash
-python simulator.py 100
-```
-
----
-
-## 🐳 Container Deployment
-
-### Docker
-```bash
-docker build -t hl7v2-interface-mirth-agent .
-docker run -p 8000:8000 -e AUDIT_SECRET_KEY=your-secret-key hl7v2-interface-mirth-agent
-```
-
-### Docker Compose
-```bash
-# Create .env file with required variables
-cp .env.example .env
-# Edit .env and set AUDIT_SECRET_KEY
-
-docker-compose up -d
-```
-
----
-
-## 📁 Project Structure
-
-```
-├── agents/                          # Core agent modules
-│   ├── api.py                       # FastAPI REST server
-│   ├── base.py                      # PHI guard, audit trail, security
-│   ├── models.py                    # Pydantic schemas
-│   ├── supervisor.py                # Multi-worker orchestrator
-│   ├── workers.py                   # Specialized evaluation workers
-│   └── ...
-├── hl7v2_interface_mirth_agent/     # Alternative implementation package
-├── tests/                           # Test suite
-├── cli.py                           # CLI entry point
-├── simulator.py                     # Load testing simulator
-├── enrichment.py                    # Feature enrichment suite
-├── Dockerfile                       # Container build
-├── docker-compose.yml               # Container orchestration
-└── pyproject.toml                   # Project metadata
-```
-
----
-
-## 📄 License
-
-MIT License. See [LICENSE](LICENSE) for details.
+Python 3.9+ (FastAPI, Pydantic v2, Uvicorn), HTML/CSS/modern JavaScript, Node.js for browser-module tests, and optional Docker. MIT license; see [LICENSE](LICENSE).
