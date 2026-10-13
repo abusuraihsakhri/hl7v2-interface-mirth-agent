@@ -2,11 +2,12 @@
 FastAPI REST API Server for Hl7V2 Interface Mirth Agent.
 """
 import os
+import hmac
 from contextlib import asynccontextmanager
 from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from .base import AuditLogger, PHIGuard, SecurityException
+from .base import AuditLogger, PHIGuard, SecurityException, GLOBAL_AUDIT
 from .models import SystemTaskPayload, ConsensusDossier
 from .supervisor import SystemSupervisor
 
@@ -18,6 +19,8 @@ async def lifespan(app: FastAPI):
     secret = os.environ.get("AUDIT_SECRET_KEY", "")
     if len(secret) < 32 or secret == "your-secure-audit-key-here":
         raise RuntimeError("Set AUDIT_SECRET_KEY to a strong, unique secret (at least 32 characters) before serving.")
+    if not hmac.compare_digest(GLOBAL_AUDIT.secret_key, secret.encode("utf-8")):
+        raise RuntimeError("Configure AUDIT_SECRET_KEY before importing the application.")
     yield
 
 
