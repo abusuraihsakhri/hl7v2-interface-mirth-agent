@@ -33,3 +33,14 @@ def test_public_service_requires_explicit_audit_secret(monkeypatch):
 
     with pytest.raises(RuntimeError, match="AUDIT_SECRET_KEY"):
         asyncio.run(start_app())
+
+
+def test_audit_key_must_exist_before_api_import(monkeypatch):
+    monkeypatch.setenv("AUDIT_SECRET_KEY", "late-key-that-is-not-the-active-logging-secret-123456")
+
+    async def start_app():
+        async with lifespan(app):
+            pass
+
+    with pytest.raises(RuntimeError, match="before importing"):
+        asyncio.run(start_app())
